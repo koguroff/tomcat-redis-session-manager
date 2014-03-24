@@ -27,6 +27,11 @@ import java.util.logging.Logger;
 
 public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
+  public static final int DEFAULT_MAX_WAIT = -1;
+  public static final int DEFAULT_MAX_IDLE = 8;
+  public static final int DEFAULT_MIN_IDLE = 0;
+  public static final int DEFAULT_MAX_ACTIVE = 8;
+
   protected byte[] NULL_SESSION = "null".getBytes();
 
   private static Logger log = Logger.getLogger("RedisSessionManager");
@@ -35,6 +40,12 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   protected int database = 0;
   protected String password = null;
   protected int timeout = Protocol.DEFAULT_TIMEOUT;
+
+  protected int maxIdle = DEFAULT_MAX_IDLE;
+  protected int minIdle = DEFAULT_MIN_IDLE;
+  protected int maxActive = DEFAULT_MAX_ACTIVE;
+  protected long maxWait = DEFAULT_MAX_WAIT;
+
   protected JedisPool connectionPool;
 
   protected RedisSessionHandlerValve handlerValve;
@@ -96,6 +107,39 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
     this.serializationStrategyClass = strategy;
   }
 
+  public int getMaxIdle() {
+    return maxIdle;
+  }
+
+  public void setMaxIdle(int maxIdle) {
+	this.maxIdle = maxIdle;
+  }
+
+  public int getMinIdle() {
+	return minIdle;
+  }
+
+  public void setMinIdle(int minIdle) {
+	this.minIdle = minIdle;
+  }
+
+  public int getMaxActive() {
+	return maxActive;
+  }
+
+  public void setMaxActive(int maxActive) {
+	this.maxActive = maxActive;
+  }
+
+  public long getMaxWait() {
+	return maxWait;
+  }
+
+  public void setMaxWait(long maxWait) {
+	this.maxWait = maxWait;
+  }
+
+  @Override
   public int getRejectedSessions() {
     // Essentially do nothing.
     return 0;
@@ -464,12 +508,21 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
   private void initializeDatabaseConnection() throws LifecycleException {
     try {
-      // TODO: Allow configuration of pool (such as size...)
-      connectionPool = new JedisPool(new JedisPoolConfig(), getHost(), getPort(), getTimeout(), getPassword());
+      JedisPoolConfig config = createJedisPoolConfig();
+      connectionPool = new JedisPool(config, getHost(), getPort(), getTimeout(), getPassword());
     } catch (Exception e) {
       e.printStackTrace();
       throw new LifecycleException("Error Connecting to Redis", e);
     }
+  }
+
+  public JedisPoolConfig createJedisPoolConfig() {
+	JedisPoolConfig config = new JedisPoolConfig();
+	config.setMaxWait(maxWait);
+	config.setMinIdle(minIdle);
+	config.setMaxIdle(maxIdle);
+	config.setMaxActive(maxActive);
+	return config;
   }
 
   private void initializeSerializer() throws ClassNotFoundException, IllegalAccessException, InstantiationException {
